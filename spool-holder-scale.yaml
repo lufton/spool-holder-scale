@@ -23,7 +23,7 @@ logger:
 api:
 
 ota:
-  password: "09c133a5b7bb4f7ba52d0a7651fbe28c"
+  password: !secret ota_password
 
 web_server:
 
