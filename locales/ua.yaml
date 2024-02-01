@@ -1,0 +1,23 @@
+substitutions:
+  back: < Назад
+  brightness: Яскравість
+  calibrate: Калібрувати
+  calibration: Калібрування
+  calibration_instructions_line_1: Покладіть вагу
+  calibration_instructions_line_2: з відомим зна-
+  calibration_instructions_line_3: ченням на плат-
+  calibration_instructions_line_4: форму.
+  confirmed: Підтвердж.
+  exit: < Вийти
+  filament: Філамент
+  id: ID
+  kg: кг
+  point: Точка
+  save: Зберегти
+  screen: Екран
+  sound: Звук
+  spool: Катушка
+  synchronization: Синхр.
+  tare: Тара
+  total: Усього
+  weight: Вага

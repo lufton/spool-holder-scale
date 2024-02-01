@@ -1,0 +1,26 @@
+substitutions:
+  friendly_name: Spool Holder Scale
+
+  back: < Back
+  brightness: Brightness
+  calibrate: Calibrate
+  calibration: Calibration
+  calibration_instructions_line_1: Put weight with
+  calibration_instructions_line_2: known value on
+  calibration_instructions_line_3: platform and
+  calibration_instructions_line_4: click encoder.
+  confirmed: Confirmed
+  exit: < Exit
+  filament: Filament
+  id: ID
+  kg: kg
+  point: Point
+  save: Save
+  screen: Screen
+  sound: Sound
+  spool: Spool
+  synchronization: Sync
+  tare: Tare
+  tared_weight: Tared weight
+  total: Total
+  weight: Weight
