@@ -27,6 +27,29 @@ ota:
 
 web_server:
 
+uart:
+  rx_pin: GPIO23
+  baud_rate: 9600
+
+rdm6300:
+  on_tag:
+    if:
+      condition:
+        lambda: return x != id(tag_id) || !id(confirmed_spool).state;
+      then:
+        - globals.set:
+            id: tag_id
+            value: !lambda return x;
+        - http_request.get:
+            url: !lambda return (id(base_url).state + "/spool?lot_nr=" + to_string(id(tag_id))).c_str();
+            verify_ssl: false
+            on_response:
+              lambda: |-
+                DynamicJsonDocument doc(2048);
+                deserializeJson(doc, id(http_client).get_string());
+                JsonArray spools = doc.as<JsonArray>();
+                if (spools.size() > 0) id(spool_id).publish_state(spools[0]["id"].as<int>());
+
 wifi:
   ssid: !secret wifi_ssid
   password: !secret wifi_password
@@ -344,6 +367,8 @@ globals:
   - id: new_spool
     type: bool
     initial_value: "false"
+  - id: tag_id
+    type: int
 
 binary_sensor:
   - platform: gpio
