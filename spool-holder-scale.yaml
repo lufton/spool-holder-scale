@@ -19,6 +19,9 @@ esp32:
     type: arduino
 
 logger:
+  level: INFO
+  logs:
+    component: ERROR
 
 api:
 
@@ -35,20 +38,19 @@ rdm6300:
   on_tag:
     if:
       condition:
-        lambda: return x != id(tag_id) || !id(confirmed_spool).state;
+        lambda: return x != id(tag_id).state || !id(confirmed_spool).state;
       then:
-        - globals.set:
+        - if:
+            condition:
+              lambda: return x != id(tag_id).state;
+            then:
+              logger.log:
+                format: "Found new TAG with ID '%d'."
+                args: ['x']
+                level: WARN
+        - number.set:
             id: tag_id
             value: !lambda return x;
-        - http_request.get:
-            url: !lambda return (id(base_url).state + "/spool?lot_nr=" + to_string(id(tag_id))).c_str();
-            verify_ssl: false
-            on_response:
-              lambda: |-
-                DynamicJsonDocument doc(2048);
-                deserializeJson(doc, id(http_client).get_string());
-                JsonArray spools = doc.as<JsonArray>();
-                if (spools.size() > 0) id(spool_id).publish_state(spools[0]["id"].as<int>());
 
 wifi:
   ssid: !secret wifi_ssid
@@ -240,14 +242,15 @@ graphical_display_menu:
 sensor:
   - platform: wifi_signal
     name: WiFi signal
-    update_interval: 5s
+  - platform: uptime
+    name: Uptime
   - platform: hx711
     id: raw_weight
     name: Raw weight
     dout_pin: GPIO16
     clk_pin: GPIO17
     gain: 128
-    update_interval: 500ms
+    update_interval: 1000ms
     on_value:
       - component.update: total_weight
       - component.update: tared_weight
@@ -257,7 +260,7 @@ sensor:
       median:
         window_size: 5
         send_every: 5
-        send_first_at: 1
+        send_first_at: 3
   - platform: template
     id: total_weight
     name: Total weight
@@ -289,10 +292,6 @@ sensor:
       if (id(total_weight).has_state() && !isnan(id(total_weight).state)) return id(total_weight).state - id(tare_weight).state;
       else return NAN;
     update_interval: never
-    on_value_range: 
-      below: 0.005
-      then:
-        switch.turn_off: confirmed_spool
   - platform: template
     id: filament_weight
     name: Filament weight
@@ -303,6 +302,13 @@ sensor:
       if (id(spool_weight).has_state() && !isnan(id(spool_weight).state) && id(spool_weight).state > 0) return id(tared_weight).state - id(spool_weight).state;
       else return NAN;
     update_interval: never
+    on_value_range:
+      below: 0
+      then:
+        - switch.turn_off: confirmed_spool
+        - number.set:
+            id: tag_id
+            value: 0
   - platform: template
     id: filtered_filament_weight
     name: Filtered filament weight
@@ -315,13 +321,13 @@ sensor:
     update_interval: never
     filters:
       median:
-        window_size: 21
-        send_every: 21
-        send_first_at: 11
+        window_size: 11
+        send_every: 11
+        send_first_at: 6
     on_value:
       if:
         condition:
-          lambda: return id(synchronization).state && id(spool_id).state > 0;
+          lambda: return id(synchronization).state && id(confirmed_spool).state && id(spool_id).state > 0;
         then:
           - http_request.send:
               url: !lambda return (id(base_url).state + "/spool/" + value_accuracy_to_string(id(spool_id).state, 0)).c_str();
@@ -367,8 +373,6 @@ globals:
   - id: new_spool
     type: bool
     initial_value: "false"
-  - id: tag_id
-    type: int
 
 binary_sensor:
   - platform: gpio
@@ -570,6 +574,27 @@ number:
         else:
           - switch.turn_off: confirmed_spool
           - lambda: id(spool_weight).publish_state(NAN);
+  - platform: template
+    id: tag_id
+    name: Tag ID
+    optimistic: true
+    min_value: 0
+    max_value: 9999999999
+    step: 1
+    mode: box
+    restore_value: false
+    on_value:
+      http_request.get:
+        url: !lambda return (id(base_url).state + "/spool?lot_nr=" + value_accuracy_to_string(x, 0)).c_str();
+        verify_ssl: false
+        on_response:
+          lambda: |-
+            DynamicJsonDocument doc(2048);
+            deserializeJson(doc, id(http_client).get_string());
+            JsonArray spools = doc.as<JsonArray>();
+            int count = spools.size();
+            if (count > 0) id(spool_id).publish_state(spools[count - 1]["id"].as<int>());
+            else ESP_LOGW("main", "Tag ID '%d' is not assigned to a real spool or corresponding spool is already archived.", id(tag_id).state);
 
 text:
   - platform: template
@@ -600,16 +625,16 @@ switch:
       - switch.turn_off: buzzer
   - platform: template
     id: confirmed_spool
-    name: Сonfirmed spool
+    name: Confirmed spool
     optimistic: true
     restore_mode: RESTORE_DEFAULT_OFF
 
 button:
   - platform: template
-    name: Сalibrate 1
+    name: Calibrate 1
     on_press:
       script.execute: calibrate1
   - platform: template
-    name: Сalibrate 2
+    name: Calibrate 2
     on_press:
       script.execute: calibrate2
